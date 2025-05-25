@@ -1,6 +1,6 @@
-using BR_Digital_Shared.Enums;
+using BR_Digital.Enums;
 
-namespace BR_Digital_Domain.Models;
+namespace BR_Digital.Models;
 
 public class Chamado
 {

@@ -6,9 +6,4 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\BR_Digital-Domain\BR_Digital_Domain.csproj" />
-    <ProjectReference Include="..\BR_Digital_Shared\BR_Digital_Shared.csproj" />
-  </ItemGroup>
-
 </Project>

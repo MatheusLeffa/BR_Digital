@@ -1,4 +1,4 @@
-﻿namespace BR_Digital_Domain.Models;
+﻿namespace BR_Digital.Models;
 
 public class Cliente(string nome)
 {
