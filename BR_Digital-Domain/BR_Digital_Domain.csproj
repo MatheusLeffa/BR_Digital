@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>BR_Digital_Domain</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BR_Digital-Repository\BR_Digital_Repository.csproj" />
+    <ProjectReference Include="..\BR_Digital_Shared\BR_Digital_Shared.csproj" />
+  </ItemGroup>
+
+</Project>
