@@ -30,6 +30,8 @@
                 <td>
                     <button type="button" class="btn btn-primary btn-sm" title="Editar"><i class="bi bi-pencil-square"></i></button>
                     <button type="button" class="btn btn-danger btn-sm" title="Apagar" onclick="modalConfirm()"><i class="bi bi-trash3"></i></button>
+                    <button type="button" class="btn btn-danger btn-sm" title="Apagar" onclick="modalConfirm()"><i class="bi bi-trash3"></i></button>
+
                 </td>
             </tr>
         }
@@ -38,7 +40,6 @@
 
 @code {
     public List<Chamado> ListaChamado { get; set; } = new();
-    public string CorLinha { get; set; } = "";
 
     protected override void OnInitialized()
     {
@@ -48,16 +49,21 @@
     // TODO: Passar esse metodo para o repository e chamar ele na inicialização da aplicação
     private void PopularListaChamado()
     {
-        Cliente vivo = new Cliente("VIVO");
-        Cliente tim = new Cliente("TIM");
+        var rand = new Random();
+        var clientes = new[] { new Cliente("VIVO"), new Cliente("TIM"), new Cliente("CLARO"), new Cliente("OI") };
+        var tiposChamado = new[] { TipoChamado.Backbone_Tx, TipoChamado.Backbone_Rx };
+        var statusChamado = new[] { StatusChamado.StatusTeste, StatusChamado.StatusTeste2, StatusChamado.StatusTeste3 };
 
-        Chamado chamado1 = new Chamado(vivo, "este / aquele", TipoChamado.Backbone_Tx, StatusChamado.StatusTeste);
-        Chamado chamado2 = new Chamado(vivo, "este / aquele", TipoChamado.Backbone_Tx, StatusChamado.StatusTeste2);
-        Chamado chamado3 = new Chamado(tim, "este / aquele", TipoChamado.Backbone_Rx, StatusChamado.StatusTeste, new DateTime(2025, 04, 23, 0, 0, 0, DateTimeKind.Local));
+        for (int i = 0; i < 100; i++)
+        {
+            var cliente = clientes[rand.Next(0, clientes.Length)];
+            var tipoChamado = tiposChamado[rand.Next(0, tiposChamado.Length)];
+            var status = statusChamado[rand.Next(0, statusChamado.Length)];
+            var data = new DateTime(rand.Next(2020, 2026), rand.Next(1, 13), rand.Next(1, 29), rand.Next(0, 24), rand.Next(0, 60), rand.Next(0, 60), DateTimeKind.Local);
 
-        ListaChamado.Add(chamado1);
-        ListaChamado.Add(chamado2);
-        ListaChamado.Add(chamado3);
+            var chamado = new Chamado(cliente, "este / aquele", tipoChamado, status, data);
+            ListaChamado.Add(chamado);
+        }
     }
 
     private string GetRowsColor(StatusChamado status)

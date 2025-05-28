@@ -9,4 +9,6 @@ public enum StatusChamado
     StatusTeste = 0,
     [Display(Name = "Status Teste 2")]
     StatusTeste2 = 1,
+    [Display(Name = "Status Teste 3")]
+    StatusTeste3 = 2
 }
