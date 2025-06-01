@@ -1,5 +1,3 @@
-using BR_Digital.Enums;
-
 namespace BR_Digital.Models;
 
 public class Chamado
@@ -8,12 +6,12 @@ public class Chamado
     public int CodigoChamado { get; set; } = new Random().Next(1, 1000000000);
     public Cliente Cliente { get; set; }
     public string Trecho { get; set; }
-    public TipoChamado Tipo { get; set; }
-    public StatusChamado Status { get; set; }
+    public string Tipo { get; set; }
+    public string Status { get; set; }
     public DateTime Abertura { get; set; } = DateTime.Now;
     public TimeSpan Interacao { get; set; } = TimeSpan.Zero;
 
-    public Chamado(Cliente cliente, string trecho, TipoChamado tipo, StatusChamado status)
+    public Chamado(Cliente cliente, string trecho, string tipo, string status)
     {
         Cliente = cliente;
         Trecho = trecho;
@@ -21,7 +19,7 @@ public class Chamado
         Status = status;
     }
 
-    public Chamado(Cliente cliente, string trecho, TipoChamado tipo, StatusChamado status, DateTime abertura)
+    public Chamado(Cliente cliente, string trecho, string tipo, string status, DateTime abertura)
     {
         Cliente = cliente;
         Trecho = trecho;

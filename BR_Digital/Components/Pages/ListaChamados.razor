@@ -1,84 +1,100 @@
 @page "/lista-chamados"
 @rendermode InteractiveServer
+@inject IJSRuntime JSRuntime
+@inject NavigationManager _navigationManager
 
 <PageTitle>Lista de chamados</PageTitle>
 
-<table class="table table-bordered table-hover table-sm">
-    <thead>
-        <tr>
-            <th>Chamado</th>
-            <th>Cliente</th>
-            <th>Trecho</th>
-            <th>Status</th>
-            <th>Tipo</th>
-            <th>Abertura</th>
-            <th>Interação</th>
-            <th>Opções</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (Chamado chamado in ListaChamado)
-        {
-            <tr class="@GetRowsColor(chamado.Status)">
-                <td>@chamado.CodigoChamado</td>
-                <td>@chamado.Cliente.Nome</td>
-                <td>@chamado.Trecho</td>
-                <td>@chamado.Status</td>
-                <td>@chamado.Tipo</td>
-                <td>@chamado.Abertura</td>
-                <td>@chamado.Interacao</td>
-                <td>
-                    <button type="button" class="btn btn-primary btn-sm" title="Editar"><i class="bi bi-pencil-square"></i></button>
-                    <button type="button" class="btn btn-danger btn-sm" title="Apagar" onclick="modalConfirm()"><i class="bi bi-trash3"></i></button>
-                    <button type="button" class="btn btn-danger btn-sm" title="Apagar" onclick="modalConfirm()"><i class="bi bi-trash3"></i></button>
-
-                </td>
+<div class="table-responsive">
+    <table id="myTable" class="table table-bordered table-hover table-sm">
+        <thead>
+            <tr>
+                <th>Chamado</th>
+                <th>Cliente</th>
+                <th>Trecho</th>
+                <th>Status</th>
+                <th>Tipo</th>
+                <th>Abertura</th>
+                <th>Interação</th>
+                <th>Opções</th>
             </tr>
-        }
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+            @foreach (Chamado chamado in ListaChamado)
+            {
+                <tr class="@GetRowsColor(chamado.Status)">
+                    <td>@chamado.CodigoChamado</td>
+                    <td>@chamado.Cliente.Nome</td>
+                    <td>@chamado.Trecho</td>
+                    <td>@chamado.Status</td>
+                    <td>@chamado.Tipo</td>
+                    <td data-order="@chamado.Abertura.ToString("yyyy-MM-dd HH:mm:ss")">
+                        @chamado.Abertura.ToString("dd/MM/yyyy HH:mm:ss")
+                    </td>
+                    <td>@chamado.Interacao</td>
+                    <td>
+                        <button type="button" class="btn btn-primary btn-sm" title="Editar"><i class="bi bi-pencil-square"></i></button>
+                        <button type="button" class="btn btn-danger btn-sm" title="Apagar" onclick="@(() => ConfirmDelete(chamado))"><i class="bi bi-trash3"></i></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
 
 @code {
-    public List<Chamado> ListaChamado { get; set; } = new();
+    public List<Chamado> ListaChamado { get; set; } = [];
 
     protected override void OnInitialized()
     {
-        PopularListaChamado();
+        ListaChamado = ChamadoRepository.GetListaChamados();
     }
 
-    // TODO: Passar esse metodo para o repository e chamar ele na inicialização da aplicação
-    private void PopularListaChamado()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var rand = new Random();
-        var clientes = new[] { new Cliente("VIVO"), new Cliente("TIM"), new Cliente("CLARO"), new Cliente("OI") };
-        var tiposChamado = new[] { TipoChamado.Backbone_Tx, TipoChamado.Backbone_Rx };
-        var statusChamado = new[] { StatusChamado.StatusTeste, StatusChamado.StatusTeste2, StatusChamado.StatusTeste3 };
-
-        for (int i = 0; i < 100; i++)
+        if (firstRender)
         {
-            var cliente = clientes[rand.Next(0, clientes.Length)];
-            var tipoChamado = tiposChamado[rand.Next(0, tiposChamado.Length)];
-            var status = statusChamado[rand.Next(0, statusChamado.Length)];
-            var data = new DateTime(rand.Next(2020, 2026), rand.Next(1, 13), rand.Next(1, 29), rand.Next(0, 24), rand.Next(0, 60), rand.Next(0, 60), DateTimeKind.Local);
-
-            var chamado = new Chamado(cliente, "este / aquele", tipoChamado, status, data);
-            ListaChamado.Add(chamado);
+            await JSRuntime.InvokeVoidAsync("initializeDataTable");
         }
     }
 
-    private string GetRowsColor(StatusChamado status)
+    private string GetRowsColor(string status)
     {
         return status switch
         {
-            StatusChamado.StatusTeste => "table-warning",
-            StatusChamado.StatusTeste2 => "table-danger",
+            "Critico" => "table-danger",
+            "Importante" => "table-warning",
+            "Resolvido" => "table-success",
             _ => ""
         };
+    }
+
+    private async Task ConfirmDelete(Chamado chamado)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"Tem certeza que deseja excluir o chamado {chamado.CodigoChamado}?");
+
+        if (confirmed)
+        {
+            // Remove o chamado
+            ChamadoRepository.DeleteChamado(chamado);
+            _navigationManager.NavigateTo(uri: "/lista-chamados", forceLoad: true);
+        }
     }
 }
 
 <script>
-    function modalConfirm(){
-        confirm("Teste");
-    };
+    var table;
+    function initializeDataTable() {
+        table = $('#myTable').DataTable({
+            responsive: true,
+            order: [[5, "desc"]],
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
+            },
+            columnDefs: [
+                { orderable: false, targets: -1 }
+            ],
+        });
+    }
 </script>

@@ -1,4 +1,5 @@
 using BR_Digital.Components;
+using BR_Digital.Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,4 +25,6 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-app.Run();
+ChamadoRepository.PopularListaChamado(); // Populates the list of Chamados at startup
+
+await app.RunAsync();
