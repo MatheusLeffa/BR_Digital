@@ -156,7 +156,7 @@
         table = $('#myTable').DataTable({
             responsive: true,
             processing: true,
-            order: [[6, 'asc']],
+            order: [[7, 'asc']],
             lengthMenu: [25, 50, 100, -1],
             stateSave: true,
             stateDuration: -1,
@@ -190,7 +190,7 @@
                                 preSelect: [
                                     {
                                         rows: ["Critico", "Importante", "Normal"],
-                                        column: 4
+                                        column: 5
                                     }
                                 ]
                             }
@@ -211,22 +211,8 @@
                                 // Coletar todos os códigos de chamado selecionados
                                 var codigosChamado = [];
                                 for (var i = 0; i < rowsSelected.length; i++) {
-                                    codigosChamado.push(parseInt(rowsSelected[i][1]));
+                                    codigosChamado.push(parseInt(rowsSelected[i][2]));
                                 }
-
-                                // Opção 1: Chamar para cada código individualmente
-                                codigosChamado.forEach(codigo => {
-                                    dotNetHelper.invokeMethodAsync("GetChamadoByCodigoJS", codigo)
-                                        .then(chamado => {
-                                            if (chamado) {
-                                                console.log("Chamado encontrado:", chamado);
-                                                // Faça algo com cada chamado
-                                            }
-                                        })
-                                        .catch(error => {
-                                            console.error(`Erro ao buscar chamado ${codigo}:`, error);
-                                        });
-                                });
 
                                 // Opção 2: Modificar o método C# para aceitar array de códigos (mais eficiente)
                                 dotNetHelper.invokeMethodAsync("GetMultiplosChamadosJS", codigosChamado)
