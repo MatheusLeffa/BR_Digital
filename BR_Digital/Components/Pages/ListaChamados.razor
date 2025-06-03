@@ -5,10 +5,11 @@
 
 <PageTitle>Lista de chamados</PageTitle>
 
-<div class="table-responsive">
+<div class="">
     <table id="myTable" class="table table-bordered table-hover table-sm">
         <thead>
             <tr>
+                <th></th>
                 <th>Chamado</th>
                 <th>Cliente</th>
                 <th>Trecho</th>
@@ -23,6 +24,7 @@
             @foreach (Chamado chamado in ListaChamado)
             {
                 <tr class="@GetRowsColor(chamado.Status)">
+                    <td></td>
                     <td>@chamado.CodigoChamado</td>
                     <td>@chamado.Cliente.Nome</td>
                     <td>@chamado.Trecho</td>
@@ -64,7 +66,7 @@
         {
             "Critico" => "table-danger",
             "Importante" => "table-warning",
-            "Resolvido" => "table-success",
+            "Concluido" => "table-success",
             _ => ""
         };
     }
@@ -88,14 +90,59 @@
     function initializeDataTable() {
         table = $('#myTable').DataTable({
             responsive: true,
-            order: [[5, "desc"]],
+            processing: true,
+            order: [[6, 'asc']],
+            lengthMenu: [25, 50, 100, -1],
             stateSave: true,
+            stateDuration: -1,
             language: {
                 url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
             },
             columnDefs: [
-                { orderable: false, targets: -1 }
+                {
+                    orderable: false,
+                    render: DataTable.render.select(),
+                    targets: 0
+                }
             ],
+            select: {
+                style: 'multi',
+                selector: 'td:first-child'
+            },
+            layout: {
+                top2start: {
+                    buttons: [
+                        {
+                            extend: 'searchPanes',
+                            config: {
+                                cascadePanes: true,
+                                collapse: false,
+                                preSelect: [
+                                    {
+                                        rows: ["Critico", "Importante", "Normal"],
+                                        column: 3
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                topEnd: {
+                    buttons: [
+                        {
+                            text: "Responder Cliente",
+                            action: function () {
+                                var rowsSelected = table.rows({ selected: true }).data();
+                                alert(rowsSelected);
+                            }
+                        }
+                    ],
+                    search: {
+                        search: true,
+                        placeholder: 'Pesquisar'
+                    }
+                }
+            },
         });
     }
 </script>
