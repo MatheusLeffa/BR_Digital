@@ -1,0 +1,26 @@
+﻿table.dataTable tbody td.dt-control {
+    text-align: center;
+    cursor: pointer;
+}
+
+    table.dataTable tbody td.dt-control:before {
+        font-family: "bootstrap-icons";
+        font-size: 1.1em;
+    }
+
+tr.parent-row td {
+    vertical-align: middle;
+}
+
+.dtrg-level-0 td {
+    background-color: #f8f9fa;
+}
+
+.dtrg-detail-row {
+    background-color: #f8f9fa;
+}
+
+    .dtrg-detail-row table {
+        margin: 0 !important;
+        background-color: white;
+    }

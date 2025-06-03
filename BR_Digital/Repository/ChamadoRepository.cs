@@ -11,6 +11,11 @@ namespace BR_Digital.Repository
             return ListaChamados;
         }
 
+        public static Chamado? GetChamadoByCodigo(int codigoChamado)
+        {
+            return ListaChamados.Find(c => c.CodigoChamado == codigoChamado);
+        }
+
         public static void AddChamado(Chamado chamado)
         {
             ListaChamados.Add(chamado);

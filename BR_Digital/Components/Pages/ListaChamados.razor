@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject IJSRuntime JSRuntime
 @inject NavigationManager _navigationManager
+@implements IDisposable
 
 <PageTitle>Lista de chamados</PageTitle>
 
@@ -9,6 +10,7 @@
     <table id="myTable" class="table table-bordered table-hover table-sm">
         <thead>
             <tr>
+                <th></th>
                 <th></th>
                 <th>Chamado</th>
                 <th>Cliente</th>
@@ -23,8 +25,9 @@
         <tbody>
             @foreach (Chamado chamado in ListaChamado)
             {
-                <tr class="@GetRowsColor(chamado.Status)">
+                <tr class="@GetRowsColor(chamado.Status)" data-id="@chamado.CodigoChamado">
                     <td></td>
+                    <td class="dt-control"></td>
                     <td>@chamado.CodigoChamado</td>
                     <td>@chamado.Cliente.Nome</td>
                     <td>@chamado.Trecho</td>
@@ -46,6 +49,8 @@
 
 @code {
     public List<Chamado> ListaChamado { get; set; } = [];
+    // Adicione esta propriedade para referência do DotNetObject
+    private DotNetObjectReference<ListaChamados>? dotNetHelper;
 
     protected override void OnInitialized()
     {
@@ -56,8 +61,14 @@
     {
         if (firstRender)
         {
-            await JSRuntime.InvokeVoidAsync("initializeDataTable");
+            dotNetHelper = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("initializeDataTable", dotNetHelper);
         }
+    }
+
+    public void Dispose()
+    {
+        dotNetHelper?.Dispose();
     }
 
     private string GetRowsColor(string status)
@@ -83,11 +94,65 @@
             _navigationManager.NavigateTo(uri: "/lista-chamados", forceLoad: true);
         }
     }
+
+    [JSInvokable]
+    public Chamado? GetChamadoByCodigoJS(int codigoChamado)
+    {
+        return ChamadoRepository.GetChamadoByCodigo(codigoChamado);
+    }
+
+    [JSInvokable]
+    public List<Chamado> GetMultiplosChamadosJS(int[] codigosChamado)
+    {
+        var resultado = new List<Chamado>();
+        foreach (var codigo in codigosChamado)
+        {
+            var chamado = ChamadoRepository.GetChamadoByCodigo(codigo);
+            if (chamado != null)
+            {
+                resultado.Add(chamado);
+            }
+        }
+        return resultado;
+    }
+
+    [JSInvokable]
+    public object? GetChamadoDetalhesJS(int codigoChamado)
+    {
+        var chamado = ChamadoRepository.GetChamadoByCodigo(codigoChamado);
+        if (chamado == null) return null;
+
+        return new
+        {
+            codigoChamado = chamado.CodigoChamado,
+            descricao = "Teste descrição do chamado.",
+            responsavel = "Teste responsável do chamado.",
+            ultimaAtualizacao = DateTime.Now,
+            historico = "Histórico não disponível."
+        };
+    }
+
 }
 
 <script>
     var table;
-    function initializeDataTable() {
+
+    function initializeDataTable(dotNetHelper) {
+
+        // Função para formatar os detalhes do chamado
+        function formatDetails(chamado) {
+            return `
+                <div class="p-3">
+                    <table class="table table-sm table-bordered">
+                        <tr><th>Descrição:</th><td>${chamado.descricao || 'N/A'}</td></tr>
+                        <tr><th>Responsável:</th><td>${chamado.responsavel || 'N/A'}</td></tr>
+                        <tr><th>Última Atualização:</th><td>${new Date(chamado.ultimaAtualizacao).toLocaleString()}</td></tr>
+                        <tr><th>Histórico:</th><td>${chamado.historico || 'Sem histórico'}</td></tr>
+                    </table>
+                </div>
+            `;
+        }
+
         table = $('#myTable').DataTable({
             responsive: true,
             processing: true,
@@ -103,6 +168,11 @@
                     orderable: false,
                     render: DataTable.render.select(),
                     targets: 0
+                },
+                {
+                    className: 'dt-control',
+                    orderable: false,
+                    targets: 1
                 }
             ],
             select: {
@@ -120,7 +190,7 @@
                                 preSelect: [
                                     {
                                         rows: ["Critico", "Importante", "Normal"],
-                                        column: 3
+                                        column: 4
                                     }
                                 ]
                             }
@@ -133,7 +203,46 @@
                             text: "Responder Cliente",
                             action: function () {
                                 var rowsSelected = table.rows({ selected: true }).data();
-                                alert(rowsSelected);
+                                if (rowsSelected.length === 0) {
+                                    alert("Nenhum chamado selecionado!");
+                                    return;
+                                }
+
+                                // Coletar todos os códigos de chamado selecionados
+                                var codigosChamado = [];
+                                for (var i = 0; i < rowsSelected.length; i++) {
+                                    codigosChamado.push(parseInt(rowsSelected[i][1]));
+                                }
+
+                                // Opção 1: Chamar para cada código individualmente
+                                codigosChamado.forEach(codigo => {
+                                    dotNetHelper.invokeMethodAsync("GetChamadoByCodigoJS", codigo)
+                                        .then(chamado => {
+                                            if (chamado) {
+                                                console.log("Chamado encontrado:", chamado);
+                                                // Faça algo com cada chamado
+                                            }
+                                        })
+                                        .catch(error => {
+                                            console.error(`Erro ao buscar chamado ${codigo}:`, error);
+                                        });
+                                });
+
+                                // Opção 2: Modificar o método C# para aceitar array de códigos (mais eficiente)
+                                dotNetHelper.invokeMethodAsync("GetMultiplosChamadosJS", codigosChamado)
+                                    .then(chamados => {
+                                        console.log("Chamados encontrados:", chamados);
+                                        var mensagem = "Chamados selecionados:\n\n";
+                                        // Processar todos os chamados de uma vez
+                                        chamados.forEach(chamado => {
+                                            // Faça algo com cada chamado
+                                            mensagem += `• ${chamado.codigoChamado} - ${chamado.cliente.nome} (${chamado.status})\n`;
+                                        });
+                                        alert(mensagem);
+                                    })
+                                    .catch(error => {
+                                        console.error("Erro ao buscar chamados:", error);
+                                    });
                             }
                         }
                     ],
@@ -143,6 +252,34 @@
                     }
                 }
             },
+        });
+        // Evento para mostrar/esconder child rows
+        $('#myTable tbody').on('click', 'td.dt-control', function () {
+            var tr = $(this).closest('tr');
+            var row = table.row(tr);
+            var icon = $(this).find('i');
+            var chamadoId = parseInt(tr.attr('data-id')); // Obter o ID do atributo data-id
+
+            if (row.child.isShown()) {
+                row.child.hide();
+                icon.removeClass('bi-dash-circle').addClass('bi-plus-circle');
+            } else {
+                icon.removeClass('bi-plus-circle').addClass('bi-arrow-clockwise');
+
+                dotNetHelper.invokeMethodAsync("GetChamadoDetalhesJS", chamadoId)
+                    .then(chamado => {
+                        if (chamado) {
+                            row.child(formatDetails(chamado)).show();
+                            icon.removeClass('bi-arrow-clockwise').addClass('bi-dash-circle');
+                        } else {
+                            icon.removeClass('bi-arrow-clockwise').addClass('bi-plus-circle');
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Erro ao buscar detalhes:", error);
+                        icon.removeClass('bi-arrow-clockwise').addClass('bi-plus-circle');
+                    });
+            }
         });
     }
 </script>
