@@ -96,12 +96,6 @@
     }
 
     [JSInvokable]
-    public Chamado? GetChamadoByCodigoJS(int codigoChamado)
-    {
-        return ChamadoRepository.GetChamadoByCodigo(codigoChamado);
-    }
-
-    [JSInvokable]
     public List<Chamado> GetMultiplosChamadosJS(int[] codigosChamado)
     {
         var resultado = new List<Chamado>();
@@ -157,7 +151,7 @@
             responsive: true,
             processing: true,
             order: [[7, 'asc']],
-            lengthMenu: [25, 50, 100, -1],
+            lengthMenu: [25, 50, 100],
             stateSave: true,
             stateDuration: -1,
             language: {
@@ -177,7 +171,8 @@
             ],
             select: {
                 style: 'multi',
-                selector: 'td:first-child'
+                selector: 'td:first-child',
+                info: false
             },
             layout: {
                 top2start: {
