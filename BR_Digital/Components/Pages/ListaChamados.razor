@@ -6,7 +6,16 @@
 
 <PageTitle>Lista de chamados</PageTitle>
 
-<div>
+@if (IsLoading)
+{
+    <div class="d-flex justify-content-center align-items-center vh-100">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+    </div>
+}
+
+<div hidden="@IsLoading">
     <table id="myTable" class="table table-bordered table-hover table-sm">
         <thead>
             <tr>
@@ -38,8 +47,12 @@
                     </td>
                     <td>@chamado.Interacao</td>
                     <td>
-                        <button type="button" class="btn btn-primary btn-sm" title="Editar"><i class="bi bi-pencil-square"></i></button>
-                        <button type="button" class="btn btn-danger btn-sm" title="Apagar" onclick="@(() => ConfirmDelete(chamado))"><i class="bi bi-trash3"></i></button>
+                        <button type="button" class="btn btn-primary btn-sm" title="Editar" @onclick="() => OnEditClick(chamado)" disabled="@IsLoading">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm" title="Apagar" @onclick="() => ConfirmDelete(chamado)" disabled="@IsLoading">
+                            <i class="bi bi-trash3"></i>
+                        </button>
                     </td>
                 </tr>
             }
@@ -50,18 +63,33 @@
 @code {
     public List<Chamado> ListaChamado { get; set; } = [];
     private DotNetObjectReference<ListaChamados>? dotNetHelper;
+    private bool IsLoading = true;
 
     protected override void OnInitialized()
     {
-        ListaChamado = ChamadoRepository.GetListaChamados();
+        IsLoading = true;
+        // Inicialmente, carrega apenas os não concluídos
+        ListaChamado = ChamadoRepository.GetListaChamados()
+            .Where(c => c.Status != "Concluido")
+            .ToList();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            dotNetHelper = DotNetObjectReference.Create(this);
-            await JSRuntime.InvokeVoidAsync("initializeDataTable", dotNetHelper);
+            try
+            {
+                await ReinitializeDataTable();
+                IsLoading = false;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (Exception ex)
+            {
+                await Console.Error.WriteLineAsync($"Error initializing DataTable: {ex.Message}");
+                IsLoading = false;
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
 
@@ -84,15 +112,35 @@
 
     private async Task ConfirmDelete(Chamado chamado)
     {
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            $"Tem certeza que deseja excluir o chamado {chamado.CodigoChamado}?");
-
-        if (confirmed)
+        try 
         {
-            // Remove o chamado
-            ChamadoRepository.DeleteChamado(chamado);
-            _navigationManager.NavigateTo(uri: "/lista-chamados", forceLoad: true);
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+                $"Tem certeza que deseja excluir o chamado {chamado.CodigoChamado}?");
+
+            if (confirmed)
+            {
+                IsLoading = true;
+                await InvokeAsync(StateHasChanged);
+
+                // Delete the chamado
+                ChamadoRepository.DeleteChamado(chamado);
+                
+                // Instead of manually updating the list and reinitializing DataTable,
+                // navigate to the same page which will trigger a full reload
+                _navigationManager.NavigateTo(_navigationManager.Uri, forceLoad: true);
+            }
         }
+        catch (Exception ex)
+        {
+            await Console.Error.WriteLineAsync($"Error deleting chamado: {ex.Message}");
+            IsLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OnEditClick(Chamado chamado)
+    {
+        // Logic for editing the chamado
     }
 
     [JSInvokable]
@@ -126,126 +174,272 @@
         };
     }
 
+    [JSInvokable]
+    public async Task AtualizarListaChamados(bool mostrarConcluidos)
+    {
+        try
+        {
+            IsLoading = true;
+            await InvokeAsync(StateHasChanged);
+
+            if (mostrarConcluidos)
+            {
+                ListaChamado = ChamadoRepository.GetListaChamados();
+            }
+            else
+            {
+                ListaChamado = ChamadoRepository.GetListaChamados()
+                    .Where(c => c.Status != "Concluido")
+                    .ToList();
+            }
+
+            await ReinitializeDataTable();
+        }
+        finally
+        {
+            IsLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    [JSInvokable]
+    public async Task<bool> ApagarMultiplosChamadosJS(int[] codigosChamado)
+    {
+        try 
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+                $"Tem certeza que deseja excluir {codigosChamado.Length} chamado(s)?");
+
+            if (confirmed)
+            {
+                IsLoading = true;
+                await InvokeAsync(StateHasChanged);
+
+                foreach (var codigo in codigosChamado)
+                {
+                    var chamado = ChamadoRepository.GetChamadoByCodigo(codigo);
+                    if (chamado != null)
+                    {
+                        ChamadoRepository.DeleteChamado(chamado);
+                    }
+                }
+
+                // Instead of manually updating the list and reinitializing DataTable,
+                // navigate to the same page which will trigger a full reload
+                _navigationManager.NavigateTo(_navigationManager.Uri, forceLoad: true);
+                return true;
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao excluir chamados: {ex.Message}");
+            IsLoading = false;
+            await InvokeAsync(StateHasChanged);
+            return false;
+        }
+    }
+
+    private async Task ReinitializeDataTable()
+    {
+        // First, ensure the table is destroyed in JavaScript
+        await JSRuntime.InvokeVoidAsync("destroyDataTable");
+        
+        // Then dispose the old reference
+        if (dotNetHelper != null)
+        {
+            var oldHelper = dotNetHelper;
+            dotNetHelper = null;
+            oldHelper.Dispose();
+        }
+
+        // Create new reference and initialize
+        dotNetHelper = DotNetObjectReference.Create(this);
+        await JSRuntime.InvokeVoidAsync("initializeDataTable", dotNetHelper);
+    }
 }
 
 <script>
     var table;
 
-    function initializeDataTable(dotNetHelper) {
+    // Define formatDetails function before it's used
+    function formatDetails(chamado) {
+        return `
+            <div class="p-3">
+                <table class="table table-sm table-bordered">
+                    <tr><th>Descrição:</th><td>${chamado.descricao || 'N/A'}</td></tr>
+                    <tr><th>Responsável:</th><td>${chamado.responsavel || 'N/A'}</td></tr>
+                    <tr><th>Última Atualização:</th><td>${new Date(chamado.ultimaAtualizacao).toLocaleString()}</td></tr>
+                    <tr><th>Histórico:</th><td>${chamado.historico || 'Sem histórico'}</td></tr>
+                </table>
+            </div>
+        `;
+    }
 
-        // Função para formatar os detalhes do chamado
-        function formatDetails(chamado) {
-            return `
-                <div class="p-3">
-                    <table class="table table-sm table-bordered">
-                        <tr><th>Descrição:</th><td>${chamado.descricao || 'N/A'}</td></tr>
-                        <tr><th>Responsável:</th><td>${chamado.responsavel || 'N/A'}</td></tr>
-                        <tr><th>Última Atualização:</th><td>${new Date(chamado.ultimaAtualizacao).toLocaleString()}</td></tr>
-                        <tr><th>Histórico:</th><td>${chamado.historico || 'Sem histórico'}</td></tr>
-                    </table>
-                </div>
-            `;
+    function initializeDataTable(dotNetHelper) {
+        // Wait for jQuery and DataTables to be ready
+        if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') {
+            requestAnimationFrame(() => initializeDataTable(dotNetHelper));
+            return;
         }
 
-        table = $('#myTable').DataTable({
-            responsive: true,
-            processing: true,
-            fixedHeader: {
-                header: true,
-                footer: false
-            },
-            order: [[7, 'asc']],
-            lengthMenu: [25, 50, 100],
-            stateSave: true,
-            stateDuration: -1,
-            language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
-            },
-            columnDefs: [
-                {
-                    orderable: false,
-                    render: DataTable.render.select(),
-                    targets: 0
-                },
-                {
-                    className: 'dt-control',
-                    orderable: false,
-                    targets: 1
-                }
-            ],
-            select: {
-                style: 'multi',
-                selector: 'td:first-child',
-                info: false
-            },
-            layout: {
-                top2start: {
-                    buttons: [
-                        {
-                            extend: 'searchPanes',
-                            config: {
-                                cascadePanes: true,
-                                collapse: false,
-                                preSelect: [
-                                    {
-                                        rows: ["Critico", "Importante", "Normal"],
-                                        column: 5
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                },
-                topEnd: {
-                    buttons: [
-                        {
-                            text: "Responder Cliente",
-                            className: 'btn-resposta d-none',
-                            action: function () {
-                                var rowsSelected = table.rows({ selected: true }).data();
-                                if (rowsSelected.length === 0) {
-                                    alert("Nenhum chamado selecionado!");
-                                    return;
-                                }
+        try {
+            // Ensure any existing instance is properly destroyed
+            destroyDataTable();
 
-                                // Coletar todos os códigos de chamado selecionados
-                                var codigosChamado = [];
-                                for (var i = 0; i < rowsSelected.length; i++) {
-                                    codigosChamado.push(parseInt(rowsSelected[i][2]));
-                                }
+            // Ensure table exists before initializing
+            if (!$('#myTable').length) {
+                console.error("Table element not found in DOM");
+                return;
+            }
 
-                                dotNetHelper.invokeMethodAsync("GetMultiplosChamadosJS", codigosChamado)
-                                    .then(chamados => {
-                                        console.log("Chamados encontrados:", chamados);
-                                        var mensagem = "Chamados selecionados:\n\n";
-                                        chamados.forEach(chamado => {
-                                            mensagem += `• ${chamado.codigoChamado} - ${chamado.cliente.nome} (${chamado.status})\n`;
-                                        });
-                                        alert(mensagem);
-                                    })
-                                    .catch(error => {
-                                        console.error("Erro ao buscar chamados:", error);
-                                    });
-                            }
-                        }
-                    ],
-                    search: {
-                        search: true,
-                        placeholder: 'Pesquisar'
+            // Initialize DataTable
+            table = $('#myTable').DataTable({
+                responsive: true,
+                processing: true,
+                fixedHeader: {
+                    header: true,
+                    footer: false
+                },
+                order: [[7, 'asc']],
+                lengthMenu: [25, 50, 100],
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
+                },
+                columnDefs: [
+                    {
+                        orderable: false,
+                        render: DataTable.render.select(),
+                        targets: 0
+                    },
+                    {
+                        className: 'dt-control',
+                        orderable: false,
+                        targets: 1
                     }
+                ],
+                select: {
+                    style: 'multi',
+                    selector: 'td:first-child',
+                    info: false
+                },
+                layout: {
+                    top2start: {
+                        buttons: [
+                            {
+                                extend: 'searchPanes',
+                                config: {
+                                    cascadePanes: true,
+                                    collapse: false,
+                                    preSelect: [
+                                        {
+                                            rows: ["Critico", "Importante", "Normal"],
+                                            column: 5
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    topEnd: {
+                        buttons: [
+                            {
+                                text: "Responder Cliente",
+                                className: 'btn-resposta mx-1 rounded-2 d-none',
+                                action: function () {
+                                    var rowsSelected = table.rows({ selected: true }).data();
+                                    if (rowsSelected.length === 0) {
+                                        alert("Nenhum chamado selecionado!");
+                                        return;
+                                    }
+
+                                    // Coletar todos os códigos de chamado selecionados
+                                    var codigosChamado = [];
+                                    for (var i = 0; i < rowsSelected.length; i++) {
+                                        codigosChamado.push(parseInt(rowsSelected[i][2]));
+                                    }
+
+                                    dotNetHelper.invokeMethodAsync("GetMultiplosChamadosJS", codigosChamado)
+                                        .then(chamados => {
+                                            console.log("Chamados encontrados:", chamados);
+                                            var mensagem = "Chamados selecionados:\n\n";
+                                            chamados.forEach(chamado => {
+                                                mensagem += `• ${chamado.codigoChamado} - ${chamado.cliente.nome} (${chamado.status})\n`;
+                                            });
+                                            alert(mensagem);
+                                        })
+                                        .catch(error => {
+                                            console.error("Erro ao buscar chamados:", error);
+                                        });
+                                }
+                            },
+                            {
+                                text: "Apagar",
+                                className: 'btn-apagar bg-danger rounded-2 d-none',
+                                action: function () {
+                                    var rowsSelected = table.rows({ selected: true }).data();
+                                    if (rowsSelected.length === 0) {
+                                        alert("Nenhum chamado selecionado!");
+                                        return;
+                                    }
+
+                                    // Coletar todos os códigos de chamado selecionados
+                                    var codigosChamado = [];
+                                    for (var i = 0; i < rowsSelected.length; i++) {
+                                        codigosChamado.push(parseInt(rowsSelected[i][2]));
+                                    }
+
+                                    dotNetHelper.invokeMethodAsync("ApagarMultiplosChamadosJS", codigosChamado)
+                                        .then(chamadosApagados => {
+                                            if(chamadosApagados) {
+                                                alert("Chamados apagados com sucesso!");
+                                            }
+                                        })
+                                        .catch(error => {
+                                            console.error("Erro ao apagar chamados:", error);
+                                        });
+                                }
+                            }
+                        ],
+                        search: {
+                            search: true,
+                            placeholder: 'Pesquisar'
+                        }
+                    }
+                },
+                drawCallback: function() {
+                    // Add event handlers after table is drawn
+                    initializeEventHandlers(dotNetHelper);
                 }
-            },
+            });
+            
+            console.log("DataTable initialized successfully");
+        } catch (error) {
+            console.error("Error initializing DataTable:", error);
+        }
+    }
+
+    // Separate function for event handlers
+    function initializeEventHandlers(dotNetHelper) {
+        $(document).off('change', '#mostrarConcluidosBtn').on('change', '#mostrarConcluidosBtn', function() {
+            var mostrarConcluidos = $(this).is(':checked');
+            dotNetHelper.invokeMethodAsync('AtualizarListaChamados', mostrarConcluidos);
         });
 
         // Update the select/deselect event handler
         table.on('select deselect', function () {
             var selectedRows = table.rows({ selected: true }).count();
-            var button = document.querySelector('.dt-buttons .btn-resposta'); // Changed from btn-primary to btn-secondary
-            if (button) {
+            var responderButton = document.querySelector('.dt-buttons .btn-resposta');
+            var apagarButton = document.querySelector('.dt-buttons .btn-apagar');
+
+            if (responderButton && apagarButton) {
                 if (selectedRows > 0) {
-                    button.classList.remove('d-none');
+                    responderButton.classList.remove('d-none');
+                    apagarButton.classList.remove('d-none');
                 } else {
-                    button.classList.add('d-none');
+                    responderButton.classList.add('d-none');
+                    apagarButton.classList.add('d-none');
                 }
             }
         });
@@ -278,5 +472,34 @@
                     });
             }
         });
+    }
+
+    function destroyDataTable() {
+        try {
+            if ($.fn.DataTable.isDataTable('#myTable')) {
+                // Remove all event handlers
+                $('#myTable tbody').off();
+                $(document).off('change', '#mostrarConcluidosBtn');
+                
+                // Clear and destroy the table
+                var dt = $('#myTable').DataTable();
+                dt.clear();
+                dt.destroy();
+                
+                // Remove any remaining DataTables-specific elements
+                $('.dt-buttons').remove();
+                $('.dataTables_filter').remove();
+                $('.dataTables_info').remove();
+                $('.dataTables_paginate').remove();
+                $('.dataTables_length').remove();
+                
+                // Clear the table's tbody
+                $('#myTable tbody').empty();
+                
+                table = null;
+            }
+        } catch (error) {
+            console.error("Error destroying DataTable:", error);
+        }
     }
 </script>

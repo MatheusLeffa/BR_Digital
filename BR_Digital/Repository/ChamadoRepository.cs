@@ -34,7 +34,7 @@ namespace BR_Digital.Repository
             var statusChamado = new[] { "Critico", "Importante", "Normal", "Concluido", "Fechado" };
             var trechosChamado = new[] { "Cachoeirinha / Gravataí", "Porto Alegre / Cachoeirinha", "Porto Alegre / Alvorada", "Porto Alegre / Canoas" };
 
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < 500; i++)
             {
                 var cliente = clientes[rand.Next(0, clientes.Length)];
                 var tipoChamado = tiposChamado[rand.Next(0, tiposChamado.Length)];
