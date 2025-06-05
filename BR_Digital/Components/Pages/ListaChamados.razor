@@ -70,7 +70,7 @@
         IsLoading = true;
         // Inicialmente, carrega apenas os não concluídos
         ListaChamado = ChamadoRepository.GetListaChamados()
-            .Where(c => c.Status != "Concluido")
+            .Where(c => c.Status != "Concluido" && c.Status != "Fechado")
             .ToList();
     }
 
@@ -189,7 +189,7 @@
             else
             {
                 ListaChamado = ChamadoRepository.GetListaChamados()
-                    .Where(c => c.Status != "Concluido")
+                    .Where(c => c.Status != "Concluido" && c.Status != "Fechado")
                     .ToList();
             }
 
