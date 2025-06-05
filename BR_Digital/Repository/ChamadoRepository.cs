@@ -31,7 +31,7 @@ namespace BR_Digital.Repository
             var rand = new Random();
             var clientes = new[] { new Cliente("VIVO"), new Cliente("TIM"), new Cliente("CLARO"), new Cliente("OI") };
             var tiposChamado = new[] { "Backbone-Tx", "Backbone-Rx", "Noc-Tx" };
-            var statusChamado = new[] { "Critico", "Importante", "Normal", "Concluido" };
+            var statusChamado = new[] { "Critico", "Importante", "Normal", "Concluido", "Fechado" };
             var trechosChamado = new[] { "Cachoeirinha / Gravataí", "Porto Alegre / Cachoeirinha", "Porto Alegre / Alvorada", "Porto Alegre / Canoas" };
 
             for (int i = 0; i < 100; i++)
