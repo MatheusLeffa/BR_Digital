@@ -49,7 +49,6 @@
 
 @code {
     public List<Chamado> ListaChamado { get; set; } = [];
-    // Adicione esta propriedade para referência do DotNetObject
     private DotNetObjectReference<ListaChamados>? dotNetHelper;
 
     protected override void OnInitialized()
@@ -201,6 +200,7 @@
                     buttons: [
                         {
                             text: "Responder Cliente",
+                            className: 'btn-resposta d-none',
                             action: function () {
                                 var rowsSelected = table.rows({ selected: true }).data();
                                 if (rowsSelected.length === 0) {
@@ -214,14 +214,11 @@
                                     codigosChamado.push(parseInt(rowsSelected[i][2]));
                                 }
 
-                                // Opção 2: Modificar o método C# para aceitar array de códigos (mais eficiente)
                                 dotNetHelper.invokeMethodAsync("GetMultiplosChamadosJS", codigosChamado)
                                     .then(chamados => {
                                         console.log("Chamados encontrados:", chamados);
                                         var mensagem = "Chamados selecionados:\n\n";
-                                        // Processar todos os chamados de uma vez
                                         chamados.forEach(chamado => {
-                                            // Faça algo com cada chamado
                                             mensagem += `• ${chamado.codigoChamado} - ${chamado.cliente.nome} (${chamado.status})\n`;
                                         });
                                         alert(mensagem);
@@ -239,6 +236,20 @@
                 }
             },
         });
+
+        // Update the select/deselect event handler
+        table.on('select deselect', function () {
+            var selectedRows = table.rows({ selected: true }).count();
+            var button = document.querySelector('.dt-buttons .btn-resposta'); // Changed from btn-primary to btn-secondary
+            if (button) {
+                if (selectedRows > 0) {
+                    button.classList.remove('d-none');
+                } else {
+                    button.classList.add('d-none');
+                }
+            }
+        });
+
         // Evento para mostrar/esconder child rows
         $('#myTable tbody').on('click', 'td.dt-control', function () {
             var tr = $(this).closest('tr');
